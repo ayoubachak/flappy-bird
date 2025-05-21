@@ -4,9 +4,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "deploy": "ng build --configuration production --base-href=/flappy-bird/ && npx angular-cli-ghpages --dir=dist/flappy-bird/browser --no-silent"
   },
   "private": true,
   "dependencies": {
@@ -29,6 +30,7 @@
     "@angular/cli": "^19.2.13",
     "@angular/compiler-cli": "^19.2.0",
     "@types/jasmine": "~5.1.0",
+    "angular-cli-ghpages": "^1.0.7",
     "jasmine-core": "~5.6.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
