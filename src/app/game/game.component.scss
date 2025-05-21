@@ -312,3 +312,60 @@
     margin: 0.3rem;
   }
 }
+
+/* Skin Selection */
+select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: white;
+  font-size: 1rem;
+  width: 100%;
+  max-width: 200px;
+}
+
+.skin-preview {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.skin-preview img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin: 0.5rem;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  padding: 5px;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.skin-preview img:hover {
+  transform: scale(1.1);
+  border-color: #4CAF50;
+}
+
+.skin-preview img.active {
+  border-color: #4CAF50;
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+/* Mobile adjustments for skin selector */
+@media (max-width: 768px) {
+  select {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .skin-preview {
+    flex-wrap: wrap;
+  }
+  
+  .skin-preview img {
+    width: 40px;
+    height: 40px;
+  }
+}

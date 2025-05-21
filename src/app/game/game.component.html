@@ -66,6 +66,34 @@
       </div>
       
       <div class="setting-group">
+        <h3>Appearance</h3>
+        <div class="setting-row">
+          <label for="birdSkin">Bird:</label>
+          <select id="birdSkin" [(ngModel)]="selectedAssets.bird">
+            <option [value]="BirdSkin.YELLOW">Yellow Bird</option>
+            <option [value]="BirdSkin.RED">Red Bird</option>
+            <option [value]="BirdSkin.BLUE">Blue Bird</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="pipeSkin">Pipes:</label>
+          <select id="pipeSkin" [(ngModel)]="selectedAssets.pipes">
+            <option [value]="PipeSkin.GREEN">Green Pipes</option>
+            <option [value]="PipeSkin.RED">Red Pipes</option>
+          </select>
+        </div>
+        
+        <div class="setting-row">
+          <label for="backgroundSkin">Background:</label>
+          <select id="backgroundSkin" [(ngModel)]="selectedAssets.background">
+            <option [value]="BackgroundSkin.DAY">Day</option>
+            <option [value]="BackgroundSkin.NIGHT">Night</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="setting-group">
         <h3>Advanced Settings</h3>
         <div class="advanced-toggle">
           <button (click)="toggleAdvancedSettings()">

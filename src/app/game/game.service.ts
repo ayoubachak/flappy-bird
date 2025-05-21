@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject, interval } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { DEFAULT_GAME_CONFIG, GameConfig } from './models/game-config.model';
+import { AssetService } from './services/asset.service';
 
 export interface Pipe {
   x: number;
@@ -25,50 +26,25 @@ export class GameService {
   // Sound properties
   private volume: number = 0.7;
   private soundEnabled: boolean = true;
-  private sounds: { [key: string]: HTMLAudioElement } = {};
 
   gameOver$ = this.gameOver.asObservable();
   score$ = this.score.asObservable();
   birdPosition$ = this.birdPosition.asObservable();
   pipes$ = this.pipes.asObservable();
   
-  constructor() {
-    this.initSounds();
-  }
-  
-  private initSounds(): void {
-    // Initialize sound effects
-    this.sounds = {
-      jump: new Audio('assets/sounds/jump.mp3'),
-      score: new Audio('assets/sounds/score.mp3'),
-      hit: new Audio('assets/sounds/hit.mp3'),
-      die: new Audio('assets/sounds/die.mp3')
-    };
-    
-    // Set initial volume for all sounds
-    this.setVolume(this.volume);
-  }
+  constructor(private assetService: AssetService) {}
   
   setVolume(volume: number): void {
     this.volume = volume;
-    
-    // Update all sound volumes
-    Object.values(this.sounds).forEach(sound => {
-      sound.volume = this.volume;
-    });
+    this.assetService.setVolume(volume);
   }
   
   setSoundEnabled(enabled: boolean): void {
     this.soundEnabled = enabled;
-  }
-  
-  private playSound(soundName: string): void {
-    if (!this.soundEnabled || this.volume === 0) return;
-    
-    const sound = this.sounds[soundName];
-    if (sound) {
-      sound.currentTime = 0;
-      sound.play().catch(err => console.error('Error playing sound:', err));
+    if (!enabled) {
+      this.assetService.setVolume(0);
+    } else {
+      this.assetService.setVolume(this.volume);
     }
   }
   
@@ -90,6 +66,9 @@ export class GameService {
     
     this.resetGame();
     this.gameStarted = true;
+    
+    // Play swoosh sound
+    this.assetService.playSound('swoosh');
     
     // Game loop
     interval(16) // ~60fps
@@ -129,7 +108,7 @@ export class GameService {
     }
     
     this.birdVelocity = this.gameConfig.jumpForce;
-    this.playSound('jump');
+    this.assetService.playSound('wing');
   }
   
   private gameLoop(): void {
@@ -154,7 +133,7 @@ export class GameService {
       if (!pipe.passed && pipe.x < this.gameConfig.birdPosition.x - this.gameConfig.pipeWidth / 2) {
         pipe.passed = true;
         this.score.next(this.score.value + 1);
-        this.playSound('score');
+        this.assetService.playSound('point');
       }
     });
     
@@ -214,9 +193,16 @@ export class GameService {
   }
   
   private endGame(): void {
-    this.playSound('hit');
-    setTimeout(() => this.playSound('die'), 500);
+    this.assetService.playSound('hit');
+    setTimeout(() => this.assetService.playSound('die'), 500);
     this.gameOver.next(true);
     this.stopGame();
+  }
+  
+  /**
+   * Get the current bird velocity for animation purposes
+   */
+  getBirdVelocity(): number {
+    return this.birdVelocity;
   }
 }

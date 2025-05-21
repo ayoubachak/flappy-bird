@@ -4,11 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, fromEvent } from 'rxjs';
 import { GameService, Pipe } from './game.service';
 import { GameConfig, DEFAULT_GAME_CONFIG } from './models/game-config.model';
+import { AssetService } from './services/asset.service';
+import { 
+  BackgroundSkin, 
+  BirdSkin, 
+  DEFAULT_ASSETS, 
+  GameAssets, 
+  PipeSkin 
+} from './models/game-assets.model';
 
 @Component({
   selector: 'app-game',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  providers: [AssetService],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -19,6 +28,7 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   public gameConfig!: GameConfig;
   private subscriptions: Subscription[] = [];
   private resizeObserver!: ResizeObserver;
+  private lastFrameTime: number = 0;
   
   // Game state
   score = 0;
@@ -33,11 +43,25 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   volume = 0.7;
   showAdvancedSettings = false;
   
+  // Asset selection
+  selectedAssets: GameAssets = DEFAULT_ASSETS;
+  
+  // Enum exports for template
+  BirdSkin = BirdSkin;
+  PipeSkin = PipeSkin;
+  BackgroundSkin = BackgroundSkin;
+  
+  // Bird animation
+  birdRotation = 0;
+  
   // Game objects
   birdPosition = { x: 0, y: 0 };
   pipes: Pipe[] = [];
   
-  constructor(private gameService: GameService) { }
+  constructor(
+    private gameService: GameService,
+    private assetService: AssetService
+  ) { }
 
   ngOnInit(): void {
     const canvas = this.gameCanvas.nativeElement;
@@ -55,7 +79,12 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       }),
       this.gameService.birdPosition$.subscribe(position => this.birdPosition = position),
-      this.gameService.pipes$.subscribe(pipes => this.pipes = pipes)
+      this.gameService.pipes$.subscribe(pipes => this.pipes = pipes),
+      
+      // Subscribe to asset changes
+      this.assetService.getAssets().subscribe(assets => {
+        this.selectedAssets = { ...assets };
+      })
     );
     
     // Set default difficulty
@@ -237,19 +266,56 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   }
   
   applySettings(): void {
+    // Update game settings
     this.gameService.updateConfig(this.gameConfig);
+    
+    // Update sound settings
     if (this.soundEnabled) {
-      // Apply volume setting
       this.gameService.setVolume(this.volume);
     } else {
-      // Mute all sounds
       this.gameService.setVolume(0);
     }
+    
+    // Update asset settings
+    this.assetService.updateAssets(this.selectedAssets);
+    
+    this.toggleSettings();
   }
   
   // Game rendering
   private startGameLoop(): void {
-    requestAnimationFrame(() => this.render());
+    this.lastFrameTime = performance.now();
+    requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+  }
+  
+  private gameLoop(timestamp: number): void {
+    // Calculate delta time for smooth animations
+    const deltaTime = timestamp - this.lastFrameTime;
+    this.lastFrameTime = timestamp;
+    
+    // Update game elements
+    this.updateGameElements(deltaTime);
+    
+    // Render the frame
+    this.render();
+    
+    // Continue the loop
+    requestAnimationFrame((newTimestamp) => this.gameLoop(newTimestamp));
+  }
+  
+  private updateGameElements(deltaTime: number): void {
+    if (!this.gameStarted || this.gamePaused || this.gameOver) return;
+    
+    // Update bird animation
+    this.assetService.updateBirdAnimation(deltaTime);
+    
+    // Update base scroll speed
+    const baseScrollSpeed = this.gameConfig.pipeSpeed * this.gameConfig.gameSpeed;
+    this.assetService.updateBaseScroll(baseScrollSpeed);
+    
+    // Update bird rotation based on velocity
+    const velocity = this.gameService.getBirdVelocity();
+    this.birdRotation = Math.max(-0.5, Math.min(Math.PI / 4, velocity * 0.04));
   }
   
   private render(): void {
@@ -258,13 +324,8 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
     // Clear canvas
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw background (sky)
-    this.ctx.fillStyle = 'skyblue';
-    this.ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw ground
-    this.ctx.fillStyle = '#7B5315';
-    this.ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+    // Draw background with repeating pattern if needed
+    this.assetService.renderBackground(this.ctx, canvas.width, canvas.height);
     
     // Calculate responsive bird position based on canvas size
     const canvasRatio = {
@@ -272,48 +333,49 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       y: canvas.height / 400 // Original design height
     };
     
-    // Draw bird
-    this.ctx.fillStyle = 'yellow';
-    this.ctx.beginPath();
-    const birdX = this.birdPosition.x * canvasRatio.x;
-    const birdY = this.birdPosition.y * canvasRatio.y;
-    const birdSize = this.gameConfig.birdSize * Math.min(canvasRatio.x, canvasRatio.y);
-    this.ctx.arc(birdX, birdY, birdSize / 2, 0, Math.PI * 2);
-    this.ctx.fill();
-    
-    // Draw pipes with responsive sizing
+    // Draw pipes with sprites
     this.pipes.forEach(pipe => {
-      this.ctx.fillStyle = 'green';
-      
       const pipeX = pipe.x * canvasRatio.x;
       const pipeWidth = this.gameConfig.pipeWidth * canvasRatio.x;
       const scaledTopHeight = pipe.topHeight * canvasRatio.y;
-      const scaledGap = this.gameConfig.pipeGap * canvasRatio.y;
+      const bottomY = scaledTopHeight + (this.gameConfig.pipeGap * canvasRatio.y);
       
-      // Top pipe
-      this.ctx.fillRect(
+      this.assetService.renderPipe(
+        this.ctx,
         pipeX,
-        0,
+        scaledTopHeight,
+        bottomY,
         pipeWidth,
-        scaledTopHeight
-      );
-      
-      // Bottom pipe
-      this.ctx.fillRect(
-        pipeX,
-        scaledTopHeight + scaledGap,
-        pipeWidth,
-        canvas.height - scaledTopHeight - scaledGap
+        canvas.height
       );
     });
     
-    // Draw score
-    this.ctx.fillStyle = 'white';
-    this.ctx.font = `${Math.max(24 * Math.min(canvasRatio.x, canvasRatio.y), 16)}px Arial`;
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`Score: ${this.score}`, 10, 30 * canvasRatio.y);
+    // Draw base with scrolling effect
+    this.assetService.renderBase(this.ctx, canvas.width, canvas.height);
     
-    // Continue game loop
-    requestAnimationFrame(() => this.render());
+    // Draw bird with sprite and rotation
+    const birdX = this.birdPosition.x * canvasRatio.x;
+    const birdY = this.birdPosition.y * canvasRatio.y;
+    const birdSize = this.gameConfig.birdSize * Math.min(canvasRatio.x, canvasRatio.y);
+    
+    this.assetService.renderBird(
+      this.ctx,
+      birdX,
+      birdY,
+      this.birdRotation,
+      birdSize
+    );
+    
+    // Draw HUD elements if needed
+    if (!this.showSettings && this.gameStarted && !this.gameOver) {
+      // Draw score
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = `${Math.max(24 * Math.min(canvasRatio.x, canvasRatio.y), 16)}px Arial`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(`${this.score}`, canvas.width / 2, 50 * canvasRatio.y);
+      this.ctx.strokeStyle = 'black';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeText(`${this.score}`, canvas.width / 2, 50 * canvasRatio.y);
+    }
   }
 }
