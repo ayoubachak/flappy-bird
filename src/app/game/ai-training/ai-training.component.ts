@@ -103,9 +103,13 @@ interface CollisionRect {
       </div>
       
       <!-- Mobile-only neural network display (no backgrounds) -->
-      <div class="mobile-only mobile-neural-network">
-        <app-neural-network-visualizer [network]="selectedAgentBrain"></app-neural-network-visualizer>
-      </div>
+<div class="mobile-only mobile-neural-network" [class.hidden]="hideMobileNetwork">
+  <app-neural-network-visualizer [network]="selectedAgentBrain"></app-neural-network-visualizer>
+</div>
+<!-- Mobile toggle for neural network -->
+<button class="mobile-only mobile-network-toggle" (click)="toggleMobileNetwork()">
+  {{ hideMobileNetwork ? 'Show' : 'Hide' }} NN
+</button>
     </div>
   `,
   styles: [`
@@ -231,15 +235,17 @@ interface CollisionRect {
     }
     
     /* Mobile controls - minimal buttons */
-    .mobile-controls {
-      position: absolute;
-      bottom: 15px;
-      right: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 100;
-    }
+.mobile-controls {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+  /* Ensure controls don't overlap with neural network */
+  width: auto;
+}
     
     .mobile-button {
       width: 50px;
@@ -260,17 +266,52 @@ interface CollisionRect {
     }
     
     /* Mobile neural network */
-    .mobile-neural-network {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 90;
-    }
-    
-    .mobile-neural-network ::ng-deep .network-visualizer-container {
+.mobile-neural-network {
+  position: absolute;
+  bottom: 80px;
+  left: 15px;
+  width: 45%;
+  height: 35%;
+  pointer-events: none;
+  z-index: 90;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-neural-network.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.mobile-network-toggle {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  z-index: 100;
+}
+
+.mobile-neural-network::before {
+  content: "Neural Network";
+  position: absolute;
+  top: 5px;
+  left: 10px;
+  font-size: 10px;
+  color: white;
+  z-index: 91;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.mobile-neural-network ::ng-deep .network-visualizer-container {
       background-color: transparent !important;
       border-radius: 0 !important;
       padding: 0 !important;
@@ -283,13 +324,20 @@ interface CollisionRect {
     }
     
     .mobile-neural-network ::ng-deep .canvas-container {
-      width: 100%;
-      height: 100%;
-    }
-    
-    .mobile-neural-network ::ng-deep .drag-instructions {
-      display: none !important;
-    }
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.mobile-neural-network ::ng-deep canvas {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+.mobile-neural-network ::ng-deep .drag-instructions {
+  display: none !important;
+}
     
     /* Media query for mobile */
     @media (max-width: 768px) {
@@ -337,10 +385,11 @@ export class AITrainingComponent implements OnInit, OnDestroy {
   private pipeSpawnTimer = 0;
   
   isPaused = false;
-  simulationSpeed = 3;
-  aiStats: AIStats | null = null;
-  selectedAgentBrain: any = null;
-  selectedAgentId = 0;
+simulationSpeed = 3;
+aiStats: AIStats | null = null;
+selectedAgentBrain: any = null;
+selectedAgentId = 0;
+hideMobileNetwork = false;
   
   constructor(
     private aiService: AIService,
@@ -1206,5 +1255,10 @@ export class AITrainingComponent implements OnInit, OnDestroy {
     
     // Update the selected agent brain visualization
     this.updateSelectedAgentBrain();
+  }
+  
+  // Toggle visibility of neural network on mobile
+  toggleMobileNetwork(): void {
+    this.hideMobileNetwork = !this.hideMobileNetwork;
   }
 } 
