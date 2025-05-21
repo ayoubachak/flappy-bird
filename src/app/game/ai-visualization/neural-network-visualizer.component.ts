@@ -33,6 +33,9 @@ interface Neuron {
       <h3>Neural Network Visualization</h3>
       <div class="canvas-container">
         <canvas #networkCanvas class="network-canvas"></canvas>
+        <div class="drag-instructions" *ngIf="hasNodes">
+          Drag nodes to reposition them
+        </div>
       </div>
       <div class="network-legend">
         <div class="legend-item">
@@ -87,6 +90,18 @@ interface Neuron {
       height: 100%;
       background-color: rgba(255, 255, 255, 0.05);
       border-radius: 5px;
+      cursor: grab;
+    }
+    
+    .drag-instructions {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      opacity: 0.7;
     }
     
     .network-legend {
@@ -144,6 +159,15 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
   private layerCounts: number[] = [];
   private layers: number = 0;
   
+  // Public property for template
+  public hasNodes = false;
+  
+  // Node dragging properties
+  private isDragging = false;
+  private draggedNodeId: number | null = null;
+  private nodePositions = new Map<number, { x: number, y: number }>();
+  private customPositions = new Map<number, { x: number, y: number }>();
+  
   constructor() { }
   
   ngOnInit(): void {
@@ -151,6 +175,122 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     this.ctx = canvas.getContext('2d')!;
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
+    
+    // Add event listeners for dragging nodes
+    canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+    canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+    canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+    canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+    
+    // Add touch events for mobile
+    canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
+    canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
+    canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
+  }
+  
+  // Mouse event handlers for dragging
+  private handleMouseDown(event: MouseEvent): void {
+    const rect = this.networkCanvas.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Find if any node was clicked
+    const clickedNodeId = this.findNodeAtPosition(x, y);
+    if (clickedNodeId !== null) {
+      this.isDragging = true;
+      this.draggedNodeId = clickedNodeId;
+      this.networkCanvas.nativeElement.style.cursor = 'grabbing';
+    }
+  }
+  
+  private handleMouseMove(event: MouseEvent): void {
+    if (!this.isDragging || this.draggedNodeId === null) return;
+    
+    const rect = this.networkCanvas.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Update node position
+    this.customPositions.set(this.draggedNodeId, { x, y });
+    
+    // Redraw the network
+    this.drawNetwork();
+  }
+  
+  private handleMouseUp(): void {
+    this.isDragging = false;
+    this.draggedNodeId = null;
+    this.networkCanvas.nativeElement.style.cursor = 'grab';
+  }
+  
+  // Touch event handlers for mobile
+  private handleTouchStart(event: TouchEvent): void {
+    if (event.touches.length !== 1) return;
+    
+    const touch = event.touches[0];
+    const rect = this.networkCanvas.nativeElement.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    // Find if any node was touched
+    const touchedNodeId = this.findNodeAtPosition(x, y);
+    if (touchedNodeId !== null) {
+      this.isDragging = true;
+      this.draggedNodeId = touchedNodeId;
+      event.preventDefault(); // Prevent scrolling
+    }
+  }
+  
+  private handleTouchMove(event: TouchEvent): void {
+    if (!this.isDragging || this.draggedNodeId === null || event.touches.length !== 1) return;
+    
+    const touch = event.touches[0];
+    const rect = this.networkCanvas.nativeElement.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    // Update node position
+    this.customPositions.set(this.draggedNodeId, { x, y });
+    
+    // Redraw the network
+    this.drawNetwork();
+    event.preventDefault(); // Prevent scrolling
+  }
+  
+  private handleTouchEnd(event: TouchEvent): void {
+    this.isDragging = false;
+    this.draggedNodeId = null;
+  }
+  
+  // Find which node (if any) is at the given position
+  private findNodeAtPosition(x: number, y: number): number | null {
+    const nodeRadius = 20; // Standard node radius
+    const radiusSquared = nodeRadius * nodeRadius;
+    
+    for (const node of this.nodes) {
+      const pos = this.getFinalNodePosition(node.id);
+      if (!pos) continue;
+      
+      // Check if click is within node radius
+      const distanceSquared = Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2);
+      if (distanceSquared <= radiusSquared) {
+        return node.id;
+      }
+    }
+    
+    return null;
+  }
+  
+  // Get the final position of a node, considering custom positions
+  private getFinalNodePosition(nodeId: number): { x: number, y: number } | undefined {
+    // First check if node has a custom position from dragging
+    const customPos = this.customPositions.get(nodeId);
+    if (customPos) {
+      return customPos;
+    }
+    
+    // Otherwise return the calculated position
+    return this.nodePositions.get(nodeId);
   }
   
   ngOnChanges(changes: SimpleChanges): void {
@@ -167,6 +307,9 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     if (container) {
       canvas.width = container.clientWidth;
       canvas.height = container.clientHeight;
+      
+      // Need to recalculate node positions and redraw when canvas size changes
+      this.calculateNodePositions();
       this.drawNetwork();
     }
   }
@@ -266,6 +409,9 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       nodes: this.nodes.length,
       connections: this.connections.length
     });
+    
+    // Update hasNodes after processing
+    this.hasNodes = this.nodes.length > 0;
   }
   
   private createDefaultNetworkStructure(): void {
@@ -311,6 +457,9 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     }
     
     this.createDefaultConnections();
+    
+    // Update hasNodes
+    this.hasNodes = this.nodes.length > 0;
   }
   
   private createDefaultConnections(): void {
@@ -342,168 +491,18 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     });
   }
   
-  private drawNetwork(): void {
-    if (!this.ctx || this.nodes.length === 0) return;
-    
+  private calculateNodePositions(): void {
     const canvas = this.networkCanvas.nativeElement;
-    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.nodePositions.clear(); // Clear previous positions
     
-    // Use thicker lines and larger nodes for better visibility
-    const nodeRadius = 22;
-    
-    // Calculate node positions
-    const nodePositions = this.calculateNodePositions();
-    
-    // Draw connections first (behind nodes)
-    this.connections.forEach(conn => {
-      const fromPos = nodePositions.get(conn.from);
-      const toPos = nodePositions.get(conn.to);
-      
-      if (!fromPos || !toPos) return;
-      
-      // Calculate connection path with a curve for better visualization
-      this.ctx.beginPath();
-      
-      // Start point
-      this.ctx.moveTo(fromPos.x, fromPos.y);
-      
-      // Draw curved connection instead of straight line
-      // Calculate control points for the curve
-      const midX = (fromPos.x + toPos.x) / 2;
-      const controlPointOffset = 0; // No offset needed for horizontal layout
-      
-      this.ctx.bezierCurveTo(
-        midX, fromPos.y,  // First control point
-        midX, toPos.y,    // Second control point
-        toPos.x, toPos.y  // End point
-      );
-      
-      // Line width based on weight strength (absolute value)
-      const weightStrength = Math.min(5, Math.max(1, Math.abs(conn.weight) * 3));
-      this.ctx.lineWidth = weightStrength;
-      
-      // Line color based on weight sign with improved contrast
-      this.ctx.strokeStyle = conn.weight >= 0 
-        ? 'rgba(50, 200, 50, 0.7)'  // Brighter green for positive
-        : 'rgba(255, 80, 0, 0.7)';  // Brighter orange for negative
-      
-      this.ctx.stroke();
-      
-      // Add weight value as text on the connection
-      const weightText = conn.weight.toFixed(2);
-      const textX = midX;
-      const textY = (fromPos.y + toPos.y) / 2;
-      
-      // Draw weight value with background for better readability
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      
-      // Draw text background
-      const textWidth = this.ctx.measureText(weightText).width;
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      this.ctx.fillRect(textX - textWidth/2 - 3, textY - 8, textWidth + 6, 16);
-      
-      // Draw text
-      this.ctx.fillStyle = Math.abs(conn.weight) > 0.5 ? '#ffffff' : '#cccccc';
-      this.ctx.fillText(weightText, textX, textY);
-    });
-    
-    // Draw nodes with labels
-    this.nodes.forEach(node => {
-      const pos = nodePositions.get(node.id);
-      if (!pos) return;
-      
-      // Draw node with glow effect for better visibility
-      this.ctx.shadowBlur = 10;
-      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      
-      // Draw node
-      this.ctx.beginPath();
-      this.ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
-      
-      // Color based on type with better contrast
-      if (node.type === 'input') {
-        this.ctx.fillStyle = '#4CAF50';  // Green
-      } else if (node.type === 'output') {
-        this.ctx.fillStyle = '#F44336';  // Red
-      } else {
-        this.ctx.fillStyle = '#2196F3';  // Blue
-      }
-      
-      this.ctx.fill();
-      this.ctx.shadowBlur = 0;  // Reset shadow
-      
-      this.ctx.strokeStyle = '#222';
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
-      
-      // Draw node ID
-      this.ctx.fillStyle = 'white';
-      this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(node.id.toString(), pos.x, pos.y);
-      
-      // Add node type label
-      const typeLabels = {
-        'input': 'In',
-        'hidden': 'Hid',
-        'output': 'Out'
-      };
-      
-      // Draw type label above the node
-      this.ctx.font = '12px Arial';
-      this.ctx.fillStyle = 'white';
-      
-      // Add background for the label
-      const labelText = typeLabels[node.type];
-      const labelWidth = this.ctx.measureText(labelText).width;
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      this.ctx.fillRect(pos.x - labelWidth/2 - 3, pos.y - nodeRadius - 18, labelWidth + 6, 16);
-      
-      // Draw the label text
-      this.ctx.fillStyle = 'white';
-      this.ctx.fillText(labelText, pos.x, pos.y - nodeRadius - 10);
-      
-      // Draw bias indicator
-      if (node.bias && node.bias !== 0) {
-        // Draw bias as small circle at edge of node
-        const biasRadius = 6;
-        const biasAngle = node.bias > 0 ? Math.PI / 4 : Math.PI * 5 / 4;
-        const biasX = pos.x + (nodeRadius - biasRadius) * Math.cos(biasAngle);
-        const biasY = pos.y + (nodeRadius - biasRadius) * Math.sin(biasAngle);
-        
-        this.ctx.beginPath();
-        this.ctx.arc(biasX, biasY, biasRadius, 0, Math.PI * 2);
-        this.ctx.fillStyle = node.bias > 0 ? 'white' : 'black';
-        this.ctx.fill();
-        this.ctx.stroke();
-        
-        // Add bias value below node
-        const biasText = node.bias.toFixed(2);
-        this.ctx.font = '10px Arial';
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillText(`b: ${biasText}`, pos.x, pos.y + nodeRadius + 12);
-      }
-    });
-    
-    // Draw legend for node types and connection weights
-    this.drawLegend();
-  }
-  
-  private calculateNodePositions(): Map<number, { x: number, y: number }> {
-    const positions = new Map<number, { x: number, y: number }>();
-    const canvas = this.networkCanvas.nativeElement;
-    
-    // Use larger padding to ensure visibility and prevent nodes from touching edges
-    const horizontalPadding = 120; 
-    const verticalPadding = 100;
+    // Use almost full canvas for spreading nodes
+    const horizontalPadding = 50; 
+    const verticalPadding = 50;
     
     const width = canvas.width - horizontalPadding * 2;
     const height = canvas.height - verticalPadding * 2;
     
-    // Calculate layer width with better spacing
+    // Calculate layer width with wider spacing
     const layerWidth = this.layers > 1 ? width / (this.layers - 1) : width;
     
     // Group nodes by layer
@@ -523,85 +522,175 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       // Calculate x position based on layer
       const x = horizontalPadding + (layer * layerWidth);
       
-      // Calculate dynamic vertical spacing based on node count
-      // The more nodes, the closer they'll be, but with a minimum spacing
-      const totalNodeSpace = Math.min(height, count * 80); // Limit total space to canvas height
-      const startY = verticalPadding + (height - totalNodeSpace) / 2; // Center nodes vertically
+      // Maximize spacing between nodes
+      const startY = verticalPadding;
+      const availableHeight = height;
       
       // Position nodes in this layer
       nodes.forEach((node, i) => {
         // Use equal spacing for consistent layout
         const y = count > 1 
-          ? startY + (i * (totalNodeSpace / (count - 1)))
-          : verticalPadding + height / 2;
+          ? startY + (i * (availableHeight / (count - 1)))
+          : startY + availableHeight / 2;
         
-        positions.set(node.id, { x, y });
+        this.nodePositions.set(node.id, { x, y });
       });
     });
-    
-    return positions;
   }
   
-  // Add a new method to draw a legend
-  private drawLegend(): void {
+  private drawNetwork(): void {
+    if (!this.ctx || this.nodes.length === 0) return;
+    
     const canvas = this.networkCanvas.nativeElement;
-    const padding = 10;
-    const legendWidth = 140;
-    const legendHeight = 120;
-    const x = canvas.width - legendWidth - padding;
-    const y = padding;
+    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw legend background
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(x, y, legendWidth, legendHeight);
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    this.ctx.strokeRect(x, y, legendWidth, legendHeight);
+    // Use standard node size
+    const nodeRadius = 20;
     
-    // Draw legend title
-    this.ctx.font = '12px Arial';
-    this.ctx.fillStyle = 'white';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText('Network Legend', x + 10, y + 20);
+    // Calculate node positions if needed
+    if (this.nodePositions.size === 0) {
+      this.calculateNodePositions();
+    }
     
-    // Draw node types
-    this.ctx.fillStyle = '#4CAF50';
-    this.ctx.beginPath();
-    this.ctx.arc(x + 20, y + 40, 8, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.fillStyle = 'white';
-    this.ctx.fillText('Input Node', x + 35, y + 44);
+    // Draw connections first (behind nodes)
+    this.connections.forEach(conn => {
+      const fromPos = this.getFinalNodePosition(conn.from);
+      const toPos = this.getFinalNodePosition(conn.to);
+      
+      if (!fromPos || !toPos) return;
+      
+      // Calculate connection path with a curve for better visualization
+      this.ctx.beginPath();
+      
+      // Start point
+      this.ctx.moveTo(fromPos.x, fromPos.y);
+      
+      // Draw curved connection with more pronounced curve
+      const midX = (fromPos.x + toPos.x) / 2;
+      const controlOffset = 30 * (toPos.y - fromPos.y) / canvas.height; // Relative curve offset
+      
+      this.ctx.bezierCurveTo(
+        midX - controlOffset, fromPos.y,  // First control point with offset
+        midX + controlOffset, toPos.y,    // Second control point with offset
+        toPos.x, toPos.y                  // End point
+      );
+      
+      // Line width based on weight strength (absolute value)
+      const weightStrength = Math.min(4, Math.max(1, Math.abs(conn.weight) * 3));
+      this.ctx.lineWidth = weightStrength;
+      
+      // Line color based on weight sign with improved contrast
+      this.ctx.strokeStyle = conn.weight >= 0 
+        ? 'rgba(50, 220, 50, 0.8)'  // Green for positive
+        : 'rgba(255, 100, 0, 0.8)';  // Orange for negative
+      
+      this.ctx.stroke();
+      
+      // Add weight value as text on the connection
+      const weightText = conn.weight.toFixed(2);
+      const textX = midX;
+      const textY = (fromPos.y + toPos.y) / 2;
+      
+      // Draw weight value with background
+      this.ctx.font = '12px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      
+      // Draw text background
+      const textWidth = this.ctx.measureText(weightText).width;
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      this.ctx.fillRect(textX - textWidth/2 - 3, textY - 8, textWidth + 6, 16);
+      
+      // Draw text
+      this.ctx.fillStyle = Math.abs(conn.weight) > 0.2 ? '#ffffff' : '#ffff00';
+      this.ctx.fillText(weightText, textX, textY);
+    });
     
-    this.ctx.fillStyle = '#2196F3';
-    this.ctx.beginPath();
-    this.ctx.arc(x + 20, y + 60, 8, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.fillStyle = 'white';
-    this.ctx.fillText('Hidden Node', x + 35, y + 64);
-    
-    this.ctx.fillStyle = '#F44336';
-    this.ctx.beginPath();
-    this.ctx.arc(x + 20, y + 80, 8, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.fillStyle = 'white';
-    this.ctx.fillText('Output Node', x + 35, y + 84);
-    
-    // Draw connection types
-    this.ctx.strokeStyle = 'rgba(50, 200, 50, 0.7)';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x + 10, y + 100);
-    this.ctx.lineTo(x + 30, y + 100);
-    this.ctx.stroke();
-    this.ctx.fillStyle = 'white';
-    this.ctx.fillText('Positive Weight', x + 35, y + 104);
-    
-    this.ctx.strokeStyle = 'rgba(255, 80, 0, 0.7)';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x + 10, y + 120);
-    this.ctx.lineTo(x + 30, y + 120);
-    this.ctx.stroke();
-    this.ctx.fillStyle = 'white';
-    this.ctx.fillText('Negative Weight', x + 35, y + 124);
+    // Draw nodes with labels
+    this.nodes.forEach(node => {
+      const pos = this.getFinalNodePosition(node.id);
+      if (!pos) return;
+      
+      // Draw node with subtle glow effect
+      this.ctx.shadowBlur = 8;
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      
+      // Draw node
+      this.ctx.beginPath();
+      this.ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+      
+      // Color based on type
+      if (node.type === 'input') {
+        this.ctx.fillStyle = '#4CAF50';  // Green
+      } else if (node.type === 'output') {
+        this.ctx.fillStyle = '#F44336';  // Red
+      } else {
+        this.ctx.fillStyle = '#2196F3';  // Blue
+      }
+      
+      this.ctx.fill();
+      this.ctx.shadowBlur = 0;  // Reset shadow
+      
+      this.ctx.strokeStyle = '#222';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      
+      // Draw node ID
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = '12px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(node.id.toString(), pos.x, pos.y);
+      
+      // Add node type label
+      const typeLabels = {
+        'input': 'In',
+        'hidden': 'Hid',
+        'output': 'Out'
+      };
+      
+      // Draw type label above the node
+      this.ctx.font = '10px Arial';
+      this.ctx.fillStyle = 'white';
+      
+      // Add background for the label
+      const labelText = typeLabels[node.type];
+      const labelWidth = this.ctx.measureText(labelText).width;
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      this.ctx.fillRect(pos.x - labelWidth/2 - 3, pos.y - nodeRadius - 15, labelWidth + 6, 14);
+      
+      // Draw the label text
+      this.ctx.fillStyle = 'white';
+      this.ctx.fillText(labelText, pos.x, pos.y - nodeRadius - 8);
+      
+      // Draw bias indicator
+      if (node.bias && node.bias !== 0) {
+        // Draw bias as small circle at edge of node
+        const biasRadius = 5;
+        const biasAngle = node.bias > 0 ? Math.PI / 4 : Math.PI * 5 / 4;
+        const biasX = pos.x + (nodeRadius - biasRadius) * Math.cos(biasAngle);
+        const biasY = pos.y + (nodeRadius - biasRadius) * Math.sin(biasAngle);
+        
+        this.ctx.beginPath();
+        this.ctx.arc(biasX, biasY, biasRadius, 0, Math.PI * 2);
+        this.ctx.fillStyle = node.bias > 0 ? 'white' : 'black';
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        // Add bias value below node
+        const biasText = node.bias.toFixed(2);
+        this.ctx.font = '10px Arial';
+        this.ctx.fillStyle = 'white';
+        
+        // Add background for bias text
+        const biasTextWidth = this.ctx.measureText(`b: ${biasText}`).width;
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.fillRect(pos.x - biasTextWidth/2 - 3, pos.y + nodeRadius + 4, biasTextWidth + 6, 14);
+        
+        // Draw bias text
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(`b: ${biasText}`, pos.x, pos.y + nodeRadius + 11);
+      }
+    });
   }
 } 

@@ -364,14 +364,60 @@ export class AITrainingComponent implements OnInit, OnDestroy {
   
   private spawnPipe(): void {
     const minTopHeight = 50;
-    const maxTopHeight = (this.gameCanvas.nativeElement.height * 0.7) - this.gameConfig.pipeGap - minTopHeight;
+    const maxCanvas = this.gameCanvas.nativeElement.height;
+    
+    // Ensure we have a valid canvas height before proceeding
+    if (!maxCanvas || maxCanvas < 200) {
+      console.warn('Canvas height is invalid, delaying pipe spawn');
+      return;
+    }
+    
+    // Calculate maximum top height with better constraints
+    // This ensures the gap is always properly sized and within valid canvas area
+    const maxTopHeight = Math.min(
+      (maxCanvas * 0.7) - this.gameConfig.pipeGap - minTopHeight,
+      maxCanvas - this.gameConfig.pipeGap - 50 // absolute ceiling
+    );
+    
+    // Ensure we're not trying to generate invalid pipes
+    if (maxTopHeight <= minTopHeight) {
+      console.warn('Invalid pipe dimensions, using fallback values');
+      // Use fallback values that are known to work
+      this.pipes.push({
+        x: this.gameCanvas.nativeElement.width,
+        topHeight: minTopHeight + 50,
+        passed: false
+      });
+      return;
+    }
+    
+    // Generate random top height within valid bounds
     const topHeight = Math.floor(Math.random() * (maxTopHeight - minTopHeight + 1)) + minTopHeight;
     
+    // Validate that the bottom pipe will be visible
+    const bottomPipeStart = topHeight + this.gameConfig.pipeGap;
+    const bottomPipeVisible = bottomPipeStart < maxCanvas - 50;
+    
+    if (!bottomPipeVisible) {
+      console.warn('Generated pipe would place bottom pipe off-screen, adjusting');
+      // Adjust top height to ensure bottom pipe is visible
+      const adjustedTopHeight = maxCanvas - this.gameConfig.pipeGap - 50;
+      this.pipes.push({
+        x: this.gameCanvas.nativeElement.width,
+        topHeight: adjustedTopHeight,
+        passed: false
+      });
+      return;
+    }
+    
+    // All checks passed, add normal pipe
     this.pipes.push({
       x: this.gameCanvas.nativeElement.width,
       topHeight,
       passed: false
     });
+    
+    console.log(`Spawned pipe with top height: ${topHeight}, canvas height: ${maxCanvas}`);
   }
   
   private updatePipes(): void {
