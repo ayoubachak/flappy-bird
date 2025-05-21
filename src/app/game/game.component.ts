@@ -12,6 +12,8 @@ import {
   GameAssets, 
   PipeSkin 
 } from './models/game-assets.model';
+import { AITrainingComponent } from './ai-training/ai-training.component';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-game',
@@ -60,7 +62,8 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   
   constructor(
     private gameService: GameService,
-    private assetService: AssetService
+    private assetService: AssetService,
+    private router: Router
   ) { }
 
   ngOnInit(): void {
@@ -382,5 +385,16 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       this.birdRotation,
       birdSize
     );
+  }
+
+  // Navigate to AI Training mode
+  startAITraining(): void {
+    // Stop any existing game
+    this.gameService.stopGame();
+    
+    // Navigate to the AI training component
+    // For simplicity, we'll just reload the app with a special parameter
+    // In a real app with proper routing, use this.router.navigate(['ai-training'])
+    window.location.href = '?mode=ai-training';
   }
 }
