@@ -1,11 +1,13 @@
 import { Component } from '@angular/core';
+import { GameComponent } from './game/game.component';
 
 @Component({
   selector: 'app-root',
-  imports: [],
+  standalone: true,
+  imports: [GameComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'flappy-bird';
+  title = 'Flappy Bird';
 }

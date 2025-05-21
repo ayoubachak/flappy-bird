@@ -1,0 +1,314 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.game-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #87CEEB;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Canvas */
+.game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* Prevents default touch actions like scrolling */
+}
+
+/* Menu Overlays */
+.menu-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.menu-panel, .settings-panel {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  width: 400px;
+  text-align: center;
+}
+
+.menu-panel h1 {
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.menu-panel h2 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.menu-button, .settings-button, .apply-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  margin: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  display: inline-block;
+  min-width: 150px;
+}
+
+.menu-button:hover, .settings-button:hover, .apply-button:hover {
+  background-color: #388E3C;
+  transform: scale(1.05);
+}
+
+.menu-button:active, .settings-button:active, .apply-button:active {
+  transform: scale(0.98);
+}
+
+.instructions, .score-display {
+  margin: 1rem 0;
+  font-size: 1.1rem;
+  color: #555;
+}
+
+.score-display {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+/* In-Game HUD */
+.game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 5;
+}
+
+.score-counter {
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pause-button {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s;
+}
+
+.pause-button:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Settings Panel */
+.settings-panel {
+  width: 90%;
+  max-width: 500px;
+}
+
+.settings-panel h2 {
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.settings-panel h3 {
+  margin: 1rem 0 0.5rem;
+  color: #444;
+  text-align: left;
+}
+
+.setting-group {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 1.5rem;
+}
+
+.setting-group:last-child {
+  border-bottom: none;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+}
+
+.setting-row label {
+  flex: 0 0 40%;
+  text-align: left;
+  font-weight: bold;
+  color: #555;
+}
+
+.setting-row input[type="range"] {
+  flex: 1;
+  margin: 0 10px;
+}
+
+.setting-row span {
+  flex: 0 0 15%;
+  text-align: right;
+}
+
+.difficulty-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+}
+
+.difficulty-buttons button {
+  flex: 1;
+  padding: 0.5rem;
+  margin: 0 5px;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.difficulty-buttons button.active {
+  background-color: #4CAF50;
+  color: white;
+  font-weight: bold;
+}
+
+.advanced-toggle button {
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  width: 100%;
+  text-align: left;
+}
+
+.advanced-toggle button:hover {
+  background-color: #e0e0e0;
+}
+
+.advanced-settings {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+}
+
+.settings-buttons {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .menu-panel, .settings-panel {
+    padding: 1.5rem;
+    width: 85%;
+  }
+  
+  .menu-panel h1 {
+    font-size: 2rem;
+  }
+  
+  .menu-button, .settings-button, .apply-button {
+    width: 100%;
+    margin: 0.5rem 0;
+  }
+  
+  .difficulty-buttons {
+    flex-direction: column;
+  }
+  
+  .difficulty-buttons button {
+    margin: 0.2rem 0;
+  }
+  
+  .settings-buttons {
+    flex-direction: column;
+  }
+  
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .setting-row label {
+    margin-bottom: 0.3rem;
+    width: 100%;
+  }
+  
+  .setting-row input[type="range"] {
+    width: 100%;
+    margin: 0.3rem 0;
+  }
+  
+  .setting-row span {
+    align-self: flex-end;
+  }
+}
+
+/* Mobile Portrait Adjustment */
+@media (max-width: 480px) {
+  .menu-panel h1 {
+    font-size: 1.8rem;
+  }
+  
+  .score-counter {
+    font-size: 1.5rem;
+  }
+}
+
+/* Landscape Orientation Adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .menu-panel, .settings-panel {
+    max-height: 85vh;
+    padding: 1rem;
+  }
+  
+  .menu-panel h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .menu-button, .settings-button, .apply-button {
+    padding: 0.5rem 1rem;
+    margin: 0.3rem;
+  }
+}

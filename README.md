@@ -1,59 +1,50 @@
-# FlappyBird
+# Flappy Bird Angular Game
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.13.
+A fully functional Flappy Bird game implemented in Angular with configurable physics and logic.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- Classic Flappy Bird gameplay
+- Configurable physics parameters:
+  - Gravity
+  - Jump force
+  - Pipe gap
+  - Pipe speed
+  - Game speed
+- Score tracking
+- Game over screen
 
-```bash
-ng serve
+## How to run
+
+1. Install dependencies:
+```
+npm install
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+2. Start the development server:
+```
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+3. Open your browser and navigate to `http://localhost:4200/`
 
-```bash
-ng generate --help
-```
+## How to play
 
-## Building
+- Click or press Space to make the bird jump
+- Navigate through the pipes without hitting them
+- Each pipe you pass increases your score
 
-To build the project run:
+## Game Controls
 
-```bash
-ng build
-```
+- **Click/Space**: Jump
+- **Settings Button**: Access game physics configuration
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Physics Configuration
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+You can adjust various game parameters:
+- **Gravity**: How quickly the bird falls
+- **Jump Force**: How high the bird jumps
+- **Pipe Gap**: Space between top and bottom pipes
+- **Pipe Speed**: How fast pipes move across the screen
+- **Pipe Spawn Rate**: Time between new pipes appearing
+- **Game Speed**: Overall game speed multiplier
