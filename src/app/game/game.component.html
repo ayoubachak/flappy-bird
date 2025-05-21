@@ -25,14 +25,17 @@
   <!-- In-Game HUD -->
   <div *ngIf="gameStarted && !gameOver" class="game-hud">
     <div class="score-counter">{{ score }}</div>
-    <button (click)="pauseGame()" class="pause-button">⏸️</button>
+    <div class="pause-container">
+      <button (click)="pauseGame()" class="pause-button" title="Press 'P' to pause">⏸️</button>
+      <span class="pause-tooltip">Press 'P' to pause</span>
+    </div>
   </div>
   
   <!-- Pause Menu -->
   <div *ngIf="gamePaused && !gameOver" class="menu-overlay">
     <div class="menu-panel">
       <h2>Game Paused</h2>
-      <button (click)="resumeGame()" class="menu-button">Resume</button>
+      <button (click)="resumeGame()" class="menu-button">Resume (or press 'P')</button>
       <button (click)="toggleSettings()" class="menu-button">Settings</button>
       <button (click)="returnToMainMenu()" class="menu-button">Main Menu</button>
     </div>

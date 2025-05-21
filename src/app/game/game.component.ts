@@ -153,6 +153,19 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
     this.handleJump();
   }
   
+  @HostListener('window:keydown.p', ['$event'])
+  onPauseKeyPress(event: Event): void {
+    event.preventDefault();
+    if (!this.gameStarted || this.gameOver) return;
+    
+    // Toggle the pause state
+    if (this.gamePaused) {
+      this.resumeGame();
+    } else {
+      this.pauseGame();
+    }
+  }
+  
   @HostListener('window:mousedown', ['$event'])
   onMouseDown(event: MouseEvent): void {
     // Only handle clicks on the canvas, not on buttons
@@ -191,11 +204,15 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
   }
   
   pauseGame(): void {
+    if (!this.gameStarted || this.gameOver) return;
+    
     this.gamePaused = true;
     this.gameService.stopGame();
   }
   
   resumeGame(): void {
+    if (!this.gameStarted || this.gameOver) return;
+    
     this.gamePaused = false;
     this.gameService.startGame();
   }
@@ -365,17 +382,5 @@ export class GameComponent implements OnInit, OnDestroy, AfterViewInit {
       this.birdRotation,
       birdSize
     );
-    
-    // Draw HUD elements if needed
-    if (!this.showSettings && this.gameStarted && !this.gameOver) {
-      // Draw score
-      this.ctx.fillStyle = 'white';
-      this.ctx.font = `${Math.max(24 * Math.min(canvasRatio.x, canvasRatio.y), 16)}px Arial`;
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(`${this.score}`, canvas.width / 2, 50 * canvasRatio.y);
-      this.ctx.strokeStyle = 'black';
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeText(`${this.score}`, canvas.width / 2, 50 * canvasRatio.y);
-    }
   }
 }

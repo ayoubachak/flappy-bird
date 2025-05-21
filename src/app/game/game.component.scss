@@ -115,6 +115,12 @@
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+.pause-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .pause-button {
   background-color: rgba(255, 255, 255, 0.7);
   border: none;
@@ -127,10 +133,37 @@
   justify-content: center;
   align-items: center;
   transition: background-color 0.3s;
+  z-index: 6;
 }
 
 .pause-button:hover {
   background-color: rgba(255, 255, 255, 0.9);
+}
+
+.pause-tooltip {
+  position: absolute;
+  right: 100%;
+  margin-right: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.pause-container:hover .pause-tooltip {
+  opacity: 1;
+}
+
+/* For mobile screens, hide the tooltip by default */
+@media (max-width: 768px) {
+  .pause-tooltip {
+    display: none;
+  }
 }
 
 /* Settings Panel */
