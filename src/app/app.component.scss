@@ -16,3 +16,18 @@
   background-color: #f0f2f5;
   font-family: 'Arial', sans-serif;
 }
+
+/* Make sure app is usable on mobile */
+@media (max-width: 768px) {
+  .app-container {
+    height: 100vh;
+    /* Prevent address bar issues on mobile */
+    height: -webkit-fill-available;
+  }
+  
+  /* Prevent zooming on iOS */
+  body {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}

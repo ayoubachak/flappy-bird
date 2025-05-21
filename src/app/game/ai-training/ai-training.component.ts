@@ -35,9 +35,27 @@ interface CollisionRect {
     <div class="ai-training-container">
       <div class="game-container">
         <canvas #gameCanvas class="game-canvas"></canvas>
+        
+        <!-- Floating mobile UI elements (no backgrounds) -->
+        <div class="mobile-only mobile-generation-display">
+          <span>Gen: {{aiStats?.generation || 0}}</span>
+          <span>Birds: {{aiStats?.aliveCount || 0}}/{{aiStats?.population || 0}}</span>
+        </div>
+        
+        <div class="mobile-only mobile-controls">
+          <button (click)="togglePause()" class="mobile-button">
+            {{ isPaused ? '▶' : '❚❚' }}
+          </button>
+          <button (click)="forceNextGeneration()" class="mobile-button">
+            Next Gen
+          </button>
+          <button (click)="exitAIMode()" class="mobile-button">
+            Exit
+          </button>
+        </div>
       </div>
       
-      <div class="visualization-panel">
+      <div class="visualization-panel desktop-only">
         <div class="network-visualization">
           <app-neural-network-visualizer 
             [network]="selectedAgentBrain">
@@ -72,8 +90,8 @@ interface CollisionRect {
               step="1"
             >
             <span>{{ simulationSpeed }}x</span>
-          </div>
-          
+      </div>
+      
           <button (click)="forceKillAllBirds()" class="control-button emergency-button">
             Emergency: Kill All Birds
           </button>
@@ -82,6 +100,11 @@ interface CollisionRect {
             Force Next Generation
           </button>
         </div>
+      </div>
+      
+      <!-- Mobile-only neural network display (no backgrounds) -->
+      <div class="mobile-only mobile-neural-network">
+        <app-neural-network-visualizer [network]="selectedAgentBrain"></app-neural-network-visualizer>
       </div>
     </div>
   `,
@@ -154,6 +177,7 @@ interface CollisionRect {
       padding: 20px;
       gap: 20px;
       overflow: auto;
+      position: relative;
     }
     
     .network-visualization,
@@ -179,17 +203,122 @@ interface CollisionRect {
       background-color: #0b7dda;
     }
     
-    @media (max-width: 1200px) {
+    /* By default, hide all mobile elements */
+    .mobile-only {
+      display: none;
+    }
+    
+    /* Mobile generation display - floating with no background */
+    .mobile-generation-display {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    
+    .mobile-generation-display span {
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 3px 6px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    
+    /* Mobile controls - minimal buttons */
+    .mobile-controls {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+    }
+    
+    .mobile-button {
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      background-color: rgba(0, 0, 0, 0.5);
+      color: white;
+      font-size: 14px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    
+    .mobile-button:active {
+      transform: scale(0.95);
+    }
+    
+    /* Mobile neural network */
+    .mobile-neural-network {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 90;
+    }
+    
+    .mobile-neural-network ::ng-deep .network-visualizer-container {
+      background-color: transparent !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+    }
+    
+    .mobile-neural-network ::ng-deep h3,
+    .mobile-neural-network ::ng-deep .network-legend {
+      display: none !important;
+    }
+    
+    .mobile-neural-network ::ng-deep .canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .mobile-neural-network ::ng-deep .drag-instructions {
+      display: none !important;
+    }
+    
+    /* Media query for mobile */
+    @media (max-width: 768px) {
       .ai-training-container {
         flex-direction: column;
       }
       
       .game-container {
         flex: 1;
+        height: 100vh;
       }
       
-      .visualization-panel {
-        flex: 1;
+      .desktop-only {
+        display: none !important;
+      }
+      
+      .mobile-only {
+        display: block;
+      }
+    }
+    
+    /* Tablet/desktop layout */
+    @media (min-width: 769px) {
+      .desktop-only {
+        display: flex;
+      }
+      
+      .mobile-only {
+        display: none !important;
       }
     }
   `]
@@ -582,10 +711,10 @@ export class AITrainingComponent implements OnInit, OnDestroy {
         // Check collision with top pipe
         if (this.isColliding(birdRect, topPipeRect)) {
           console.log(`Bird ${agent.id} collided with top pipe after moving`);
-          this.killAgent(agent.id);
-          return;
-        }
-        
+        this.killAgent(agent.id);
+        return;
+      }
+      
         // Check collision with bottom pipe
         if (this.isColliding(birdRect, bottomPipeRect)) {
           console.log(`Bird ${agent.id} collided with bottom pipe after moving`);
@@ -689,7 +818,7 @@ export class AITrainingComponent implements OnInit, OnDestroy {
         console.log(`Bird ${agent.id} prevented from jumping too close to ceiling`);
       } else {
         // Safe to jump
-        agent.velocity = this.gameConfig.jumpForce;
+      agent.velocity = this.gameConfig.jumpForce;
       }
     }
   }

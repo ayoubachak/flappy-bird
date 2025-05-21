@@ -495,9 +495,12 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     const canvas = this.networkCanvas.nativeElement;
     this.nodePositions.clear(); // Clear previous positions
     
-    // Use almost full canvas for spreading nodes
-    const horizontalPadding = 50; 
-    const verticalPadding = 50;
+    // Check if we're in mobile mode
+    const isMobile = window.innerWidth <= 768;
+    
+    // Use almost full canvas for spreading nodes, with smaller padding on mobile
+    const horizontalPadding = isMobile ? 30 : 50; 
+    const verticalPadding = isMobile ? 20 : 50;
     
     const width = canvas.width - horizontalPadding * 2;
     const height = canvas.height - verticalPadding * 2;
@@ -544,8 +547,11 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     const canvas = this.networkCanvas.nativeElement;
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Use standard node size
-    const nodeRadius = 20;
+    // Check if we're in mobile mode
+    const isMobile = window.innerWidth <= 768;
+    
+    // Use smaller node size on mobile
+    const nodeRadius = isMobile ? 15 : 20;
     
     // Calculate node positions if needed
     if (this.nodePositions.size === 0) {
@@ -576,7 +582,7 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       );
       
       // Line width based on weight strength (absolute value)
-      const weightStrength = Math.min(4, Math.max(1, Math.abs(conn.weight) * 3));
+      const weightStrength = Math.min(isMobile ? 3 : 4, Math.max(1, Math.abs(conn.weight) * 3));
       this.ctx.lineWidth = weightStrength;
       
       // Line color based on weight sign with improved contrast
@@ -586,24 +592,27 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       
       this.ctx.stroke();
       
-      // Add weight value as text on the connection
-      const weightText = conn.weight.toFixed(2);
-      const textX = midX;
-      const textY = (fromPos.y + toPos.y) / 2;
-      
-      // Draw weight value with background
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      
-      // Draw text background
-      const textWidth = this.ctx.measureText(weightText).width;
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      this.ctx.fillRect(textX - textWidth/2 - 3, textY - 8, textWidth + 6, 16);
-      
-      // Draw text
-      this.ctx.fillStyle = Math.abs(conn.weight) > 0.2 ? '#ffffff' : '#ffff00';
-      this.ctx.fillText(weightText, textX, textY);
+      // On mobile, only show weight values for significant weights to reduce clutter
+      if (!isMobile || Math.abs(conn.weight) > 0.3) {
+        // Add weight value as text on the connection
+        const weightText = isMobile ? conn.weight.toFixed(1) : conn.weight.toFixed(2);
+        const textX = midX;
+        const textY = (fromPos.y + toPos.y) / 2;
+        
+        // Draw weight value with background
+        this.ctx.font = isMobile ? '10px Arial' : '12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw text background
+        const textWidth = this.ctx.measureText(weightText).width;
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(textX - textWidth/2 - 3, textY - 8, textWidth + 6, 16);
+        
+        // Draw text
+        this.ctx.fillStyle = Math.abs(conn.weight) > 0.2 ? '#ffffff' : '#ffff00';
+        this.ctx.fillText(weightText, textX, textY);
+      }
     });
     
     // Draw nodes with labels
@@ -612,7 +621,7 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       if (!pos) return;
       
       // Draw node with subtle glow effect
-      this.ctx.shadowBlur = 8;
+      this.ctx.shadowBlur = isMobile ? 5 : 8;
       this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       
       // Draw node
@@ -637,59 +646,62 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       
       // Draw node ID
       this.ctx.fillStyle = 'white';
-      this.ctx.font = '12px Arial';
+      this.ctx.font = isMobile ? '10px Arial' : '12px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(node.id.toString(), pos.x, pos.y);
       
-      // Add node type label
-      const typeLabels = {
-        'input': 'In',
-        'hidden': 'Hid',
-        'output': 'Out'
-      };
-      
-      // Draw type label above the node
-      this.ctx.font = '10px Arial';
-      this.ctx.fillStyle = 'white';
-      
-      // Add background for the label
-      const labelText = typeLabels[node.type];
-      const labelWidth = this.ctx.measureText(labelText).width;
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      this.ctx.fillRect(pos.x - labelWidth/2 - 3, pos.y - nodeRadius - 15, labelWidth + 6, 14);
-      
-      // Draw the label text
-      this.ctx.fillStyle = 'white';
-      this.ctx.fillText(labelText, pos.x, pos.y - nodeRadius - 8);
-      
-      // Draw bias indicator
-      if (node.bias && node.bias !== 0) {
-        // Draw bias as small circle at edge of node
-        const biasRadius = 5;
-        const biasAngle = node.bias > 0 ? Math.PI / 4 : Math.PI * 5 / 4;
-        const biasX = pos.x + (nodeRadius - biasRadius) * Math.cos(biasAngle);
-        const biasY = pos.y + (nodeRadius - biasRadius) * Math.sin(biasAngle);
+      // In mobile mode, skip type labels and bias indicators to reduce clutter
+      if (!isMobile) {
+        // Add node type label
+        const typeLabels = {
+          'input': 'In',
+          'hidden': 'Hid',
+          'output': 'Out'
+        };
         
-        this.ctx.beginPath();
-        this.ctx.arc(biasX, biasY, biasRadius, 0, Math.PI * 2);
-        this.ctx.fillStyle = node.bias > 0 ? 'white' : 'black';
-        this.ctx.fill();
-        this.ctx.stroke();
-        
-        // Add bias value below node
-        const biasText = node.bias.toFixed(2);
+        // Draw type label above the node
         this.ctx.font = '10px Arial';
         this.ctx.fillStyle = 'white';
         
-        // Add background for bias text
-        const biasTextWidth = this.ctx.measureText(`b: ${biasText}`).width;
+        // Add background for the label
+        const labelText = typeLabels[node.type];
+        const labelWidth = this.ctx.measureText(labelText).width;
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        this.ctx.fillRect(pos.x - biasTextWidth/2 - 3, pos.y + nodeRadius + 4, biasTextWidth + 6, 14);
+        this.ctx.fillRect(pos.x - labelWidth/2 - 3, pos.y - nodeRadius - 15, labelWidth + 6, 14);
         
-        // Draw bias text
+        // Draw the label text
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText(`b: ${biasText}`, pos.x, pos.y + nodeRadius + 11);
+        this.ctx.fillText(labelText, pos.x, pos.y - nodeRadius - 8);
+        
+        // Draw bias indicator
+        if (node.bias && node.bias !== 0) {
+          // Draw bias as small circle at edge of node
+          const biasRadius = 5;
+          const biasAngle = node.bias > 0 ? Math.PI / 4 : Math.PI * 5 / 4;
+          const biasX = pos.x + (nodeRadius - biasRadius) * Math.cos(biasAngle);
+          const biasY = pos.y + (nodeRadius - biasRadius) * Math.sin(biasAngle);
+          
+      this.ctx.beginPath();
+          this.ctx.arc(biasX, biasY, biasRadius, 0, Math.PI * 2);
+          this.ctx.fillStyle = node.bias > 0 ? 'white' : 'black';
+          this.ctx.fill();
+          this.ctx.stroke();
+          
+          // Add bias value below node
+          const biasText = node.bias.toFixed(2);
+          this.ctx.font = '10px Arial';
+          this.ctx.fillStyle = 'white';
+          
+          // Add background for bias text
+          const biasTextWidth = this.ctx.measureText(`b: ${biasText}`).width;
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          this.ctx.fillRect(pos.x - biasTextWidth/2 - 3, pos.y + nodeRadius + 4, biasTextWidth + 6, 14);
+          
+          // Draw bias text
+          this.ctx.fillStyle = 'white';
+          this.ctx.fillText(`b: ${biasText}`, pos.x, pos.y + nodeRadius + 11);
+        }
       }
     });
   }
