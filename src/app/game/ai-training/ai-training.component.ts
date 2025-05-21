@@ -358,10 +358,8 @@ export class AITrainingComponent implements OnInit, OnDestroy {
     // Update agents (birds)
     this.updateAgents();
     
-    // Update the selected agent brain visualization occasionally
-    if (this.frameCount % 30 === 0) {
-      this.updateSelectedAgentBrain();
-    }
+    // Force refresh stats and visualizations every frame to ensure they stay updated
+    this.updateVisualizationsAndStats();
   }
   
   private spawnPipe(): void {
@@ -1024,5 +1022,14 @@ export class AITrainingComponent implements OnInit, OnDestroy {
       this.selectedAgentId = this.agents[0].id;
       this.updateSelectedAgentBrain();
     }
+  }
+  
+  // Add a dedicated method to refresh visualizations and stats
+  private updateVisualizationsAndStats(): void {
+    // Ensure we have the latest stats
+    this.aiStats = this.aiService.getLatestStats();
+    
+    // Update the selected agent brain visualization
+    this.updateSelectedAgentBrain();
   }
 } 

@@ -16,6 +16,14 @@ interface NetworkConnection {
   weight: number;
 }
 
+// Add a new interface to define the neuron type
+interface Neuron {
+  id?: number;
+  type?: string;
+  squash?: { name?: string };
+  bias?: number;
+}
+
 @Component({
   selector: 'app-neural-network-visualizer',
   standalone: true,
@@ -179,58 +187,61 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
       return;
     }
     
-    // Simpler approach to categorize nodes by layer
-    // Assume at most 3 layers (input, hidden, output)
-    const nodesByLayer: { [key: number]: number[] } = { 0: [], 1: [], 2: [] };
+    // Identify network structure more clearly
+    const inputNodes = neurons.filter((n: Neuron) => n.type === 'input');
+    const outputNodes = neurons.filter((n: Neuron) => n.type === 'output');
+    const hiddenNodes = neurons.filter((n: Neuron) => !n.type || (n.type !== 'input' && n.type !== 'output'));
     
-    // First pass: identify input and output nodes
-    neurons.forEach((neuron: any, index: number) => {
-      // Simple heuristic for layer assignment
-      if (neuron.type === 'input') {
-        nodesByLayer[0].push(index);
-      } else if (neuron.type === 'output') {
-        nodesByLayer[2].push(index);
-      } else {
-        nodesByLayer[1].push(index);
-      }
+    // Determine layers
+    this.layers = inputNodes.length > 0 && outputNodes.length > 0 ? 
+      (hiddenNodes.length > 0 ? 3 : 2) : 
+      (neurons.length > 0 ? 1 : 0);
+      
+    // Clear layer counts
+    this.layerCounts = new Array(this.layers).fill(0);
+    
+    // Process input nodes
+    inputNodes.forEach((neuron: Neuron, index: number) => {
+      this.nodes.push({
+        id: neuron.id || index,
+        type: 'input',
+        layer: 0,
+        index: index,
+        activation: neuron.squash?.name || 'LOGISTIC',
+        bias: neuron.bias || 0
+      });
+      this.layerCounts[0] = inputNodes.length;
     });
     
-    // If we don't have explicit types, use a simpler approach
-    if (nodesByLayer[0].length === 0 && nodesByLayer[2].length === 0) {
-      // Just divide neurons into 3 equal parts as a fallback
-      const inputCount = Math.ceil(neurons.length / 3);
-      const outputCount = Math.ceil(neurons.length / 3);
-      const hiddenCount = neurons.length - inputCount - outputCount;
-      
-      nodesByLayer[0] = Array.from({ length: inputCount }, (_, i) => i);
-      nodesByLayer[1] = Array.from({ length: hiddenCount }, (_, i) => i + inputCount);
-      nodesByLayer[2] = Array.from({ length: outputCount }, (_, i) => i + inputCount + hiddenCount);
-    }
-    
-    // Calculate total layers (at most 3)
-    this.layers = Object.keys(nodesByLayer).filter(key => nodesByLayer[parseInt(key)].length > 0).length;
-    
-    // Create nodes with proper positioning
-    Object.entries(nodesByLayer).forEach(([layerStr, nodeIds]) => {
-      const layer = parseInt(layerStr);
-      this.layerCounts[layer] = nodeIds.length;
-      
-      nodeIds.forEach((nodeId, indexInLayer) => {
-        const neuron = neurons[nodeId] || { bias: 0 };
-        const type = this.determineNodeType(layer, 3);
-        
+    // Process hidden nodes if any
+    if (hiddenNodes.length > 0) {
+      hiddenNodes.forEach((neuron: Neuron, index: number) => {
         this.nodes.push({
-          id: nodeId,
-          type,
-          layer,
-          index: indexInLayer,
+          id: neuron.id || (inputNodes.length + index),
+          type: 'hidden',
+          layer: 1,
+          index: index,
           activation: neuron.squash?.name || 'LOGISTIC',
           bias: neuron.bias || 0
         });
+        this.layerCounts[1] = hiddenNodes.length;
       });
+    }
+    
+    // Process output nodes
+    outputNodes.forEach((neuron: Neuron, index: number) => {
+      this.nodes.push({
+        id: neuron.id || (inputNodes.length + hiddenNodes.length + index),
+        type: 'output',
+        layer: this.layers - 1,
+        index: index,
+        activation: neuron.squash?.name || 'LOGISTIC',
+        bias: neuron.bias || 0
+      });
+      this.layerCounts[this.layers - 1] = outputNodes.length;
     });
     
-    // Parse connections - simplify to handle various formats
+    // Parse connections
     const connections = Array.isArray(this.network.connections) ? this.network.connections : [];
     
     connections.forEach((conn: any) => {
@@ -247,6 +258,14 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     if (this.connections.length === 0 && this.nodes.length > 1) {
       this.createDefaultConnections();
     }
+    
+    // Log network structure for debugging
+    console.log("Network structure:", {
+      layers: this.layers,
+      layerCounts: this.layerCounts,
+      nodes: this.nodes.length,
+      connections: this.connections.length
+    });
   }
   
   private createDefaultNetworkStructure(): void {
@@ -329,107 +348,260 @@ export class NeuralNetworkVisualizerComponent implements OnInit, OnChanges {
     const canvas = this.networkCanvas.nativeElement;
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Use thicker lines and larger nodes for better visibility
+    const nodeRadius = 22;
+    
     // Calculate node positions
     const nodePositions = this.calculateNodePositions();
     
     // Draw connections first (behind nodes)
-    this.drawConnections(nodePositions);
+    this.connections.forEach(conn => {
+      const fromPos = nodePositions.get(conn.from);
+      const toPos = nodePositions.get(conn.to);
+      
+      if (!fromPos || !toPos) return;
+      
+      // Calculate connection path with a curve for better visualization
+      this.ctx.beginPath();
+      
+      // Start point
+      this.ctx.moveTo(fromPos.x, fromPos.y);
+      
+      // Draw curved connection instead of straight line
+      // Calculate control points for the curve
+      const midX = (fromPos.x + toPos.x) / 2;
+      const controlPointOffset = 0; // No offset needed for horizontal layout
+      
+      this.ctx.bezierCurveTo(
+        midX, fromPos.y,  // First control point
+        midX, toPos.y,    // Second control point
+        toPos.x, toPos.y  // End point
+      );
+      
+      // Line width based on weight strength (absolute value)
+      const weightStrength = Math.min(5, Math.max(1, Math.abs(conn.weight) * 3));
+      this.ctx.lineWidth = weightStrength;
+      
+      // Line color based on weight sign with improved contrast
+      this.ctx.strokeStyle = conn.weight >= 0 
+        ? 'rgba(50, 200, 50, 0.7)'  // Brighter green for positive
+        : 'rgba(255, 80, 0, 0.7)';  // Brighter orange for negative
+      
+      this.ctx.stroke();
+      
+      // Add weight value as text on the connection
+      const weightText = conn.weight.toFixed(2);
+      const textX = midX;
+      const textY = (fromPos.y + toPos.y) / 2;
+      
+      // Draw weight value with background for better readability
+      this.ctx.font = '12px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      
+      // Draw text background
+      const textWidth = this.ctx.measureText(weightText).width;
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      this.ctx.fillRect(textX - textWidth/2 - 3, textY - 8, textWidth + 6, 16);
+      
+      // Draw text
+      this.ctx.fillStyle = Math.abs(conn.weight) > 0.5 ? '#ffffff' : '#cccccc';
+      this.ctx.fillText(weightText, textX, textY);
+    });
     
-    // Draw nodes
-    this.drawNodes(nodePositions);
+    // Draw nodes with labels
+    this.nodes.forEach(node => {
+      const pos = nodePositions.get(node.id);
+      if (!pos) return;
+      
+      // Draw node with glow effect for better visibility
+      this.ctx.shadowBlur = 10;
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      
+      // Draw node
+      this.ctx.beginPath();
+      this.ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+      
+      // Color based on type with better contrast
+      if (node.type === 'input') {
+        this.ctx.fillStyle = '#4CAF50';  // Green
+      } else if (node.type === 'output') {
+        this.ctx.fillStyle = '#F44336';  // Red
+      } else {
+        this.ctx.fillStyle = '#2196F3';  // Blue
+      }
+      
+      this.ctx.fill();
+      this.ctx.shadowBlur = 0;  // Reset shadow
+      
+      this.ctx.strokeStyle = '#222';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      
+      // Draw node ID
+      this.ctx.fillStyle = 'white';
+      this.ctx.font = '14px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(node.id.toString(), pos.x, pos.y);
+      
+      // Add node type label
+      const typeLabels = {
+        'input': 'In',
+        'hidden': 'Hid',
+        'output': 'Out'
+      };
+      
+      // Draw type label above the node
+      this.ctx.font = '12px Arial';
+      this.ctx.fillStyle = 'white';
+      
+      // Add background for the label
+      const labelText = typeLabels[node.type];
+      const labelWidth = this.ctx.measureText(labelText).width;
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      this.ctx.fillRect(pos.x - labelWidth/2 - 3, pos.y - nodeRadius - 18, labelWidth + 6, 16);
+      
+      // Draw the label text
+      this.ctx.fillStyle = 'white';
+      this.ctx.fillText(labelText, pos.x, pos.y - nodeRadius - 10);
+      
+      // Draw bias indicator
+      if (node.bias && node.bias !== 0) {
+        // Draw bias as small circle at edge of node
+        const biasRadius = 6;
+        const biasAngle = node.bias > 0 ? Math.PI / 4 : Math.PI * 5 / 4;
+        const biasX = pos.x + (nodeRadius - biasRadius) * Math.cos(biasAngle);
+        const biasY = pos.y + (nodeRadius - biasRadius) * Math.sin(biasAngle);
+        
+        this.ctx.beginPath();
+        this.ctx.arc(biasX, biasY, biasRadius, 0, Math.PI * 2);
+        this.ctx.fillStyle = node.bias > 0 ? 'white' : 'black';
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        // Add bias value below node
+        const biasText = node.bias.toFixed(2);
+        this.ctx.font = '10px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(`b: ${biasText}`, pos.x, pos.y + nodeRadius + 12);
+      }
+    });
+    
+    // Draw legend for node types and connection weights
+    this.drawLegend();
   }
   
   private calculateNodePositions(): Map<number, { x: number, y: number }> {
     const positions = new Map<number, { x: number, y: number }>();
     const canvas = this.networkCanvas.nativeElement;
     
-    // Padding
-    const padding = 50;
-    const width = canvas.width - padding * 2;
-    const height = canvas.height - padding * 2;
+    // Use larger padding to ensure visibility and prevent nodes from touching edges
+    const horizontalPadding = 120; 
+    const verticalPadding = 100;
     
-    // Calculate layer width (horizontal distance between layers)
+    const width = canvas.width - horizontalPadding * 2;
+    const height = canvas.height - verticalPadding * 2;
+    
+    // Calculate layer width with better spacing
     const layerWidth = this.layers > 1 ? width / (this.layers - 1) : width;
     
-    // Position all nodes
+    // Group nodes by layer
+    const nodesByLayer: { [layer: number]: NetworkNode[] } = {};
     this.nodes.forEach(node => {
+      if (!nodesByLayer[node.layer]) {
+        nodesByLayer[node.layer] = [];
+      }
+      nodesByLayer[node.layer].push(node);
+    });
+    
+    // Position all nodes by layer
+    Object.entries(nodesByLayer).forEach(([layerStr, nodes]) => {
+      const layer = parseInt(layerStr);
+      const count = nodes.length;
+      
       // Calculate x position based on layer
-      const x = padding + (node.layer * layerWidth);
+      const x = horizontalPadding + (layer * layerWidth);
       
-      // Calculate y position based on index in layer
-      const nodesInLayer = this.layerCounts[node.layer] || 1;
-      const layerHeight = nodesInLayer > 1 ? height / (nodesInLayer - 1) : height;
-      const y = padding + (node.index * layerHeight);
+      // Calculate dynamic vertical spacing based on node count
+      // The more nodes, the closer they'll be, but with a minimum spacing
+      const totalNodeSpace = Math.min(height, count * 80); // Limit total space to canvas height
+      const startY = verticalPadding + (height - totalNodeSpace) / 2; // Center nodes vertically
       
-      positions.set(node.id, { x, y });
+      // Position nodes in this layer
+      nodes.forEach((node, i) => {
+        // Use equal spacing for consistent layout
+        const y = count > 1 
+          ? startY + (i * (totalNodeSpace / (count - 1)))
+          : verticalPadding + height / 2;
+        
+        positions.set(node.id, { x, y });
+      });
     });
     
     return positions;
   }
   
-  private drawNodes(positions: Map<number, { x: number, y: number }>): void {
-    this.nodes.forEach(node => {
-      const pos = positions.get(node.id);
-      if (!pos) return;
-      
-      // Draw node
-      this.ctx.beginPath();
-      this.ctx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
-      
-      // Color based on type
-      if (node.type === 'input') {
-        this.ctx.fillStyle = '#4CAF50';
-      } else if (node.type === 'output') {
-        this.ctx.fillStyle = '#F44336';
-      } else {
-        this.ctx.fillStyle = '#2196F3';
-      }
-      
-      this.ctx.fill();
-      this.ctx.stroke();
-      
-      // Draw bias indicator (size of circle inside the node)
-      if (node.bias) {
-        const biasRadius = Math.min(10, Math.max(5, Math.abs(node.bias) * 5));
-        this.ctx.beginPath();
-        this.ctx.arc(pos.x, pos.y, biasRadius, 0, Math.PI * 2);
-        this.ctx.fillStyle = node.bias > 0 ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
-        this.ctx.fill();
-      }
-    });
-  }
-  
-  private drawConnections(positions: Map<number, { x: number, y: number }>): void {
-    this.connections.forEach(conn => {
-      const fromPos = positions.get(conn.from);
-      const toPos = positions.get(conn.to);
-      
-      if (!fromPos || !toPos) return;
-      
-      // Draw connection line
-      this.ctx.beginPath();
-      this.ctx.moveTo(fromPos.x, fromPos.y);
-      this.ctx.lineTo(toPos.x, toPos.y);
-      
-      // Line width based on weight strength
-      const weightStrength = Math.min(5, Math.max(1, Math.abs(conn.weight) * 3));
-      this.ctx.lineWidth = weightStrength;
-      
-      // Line color based on weight sign
-      if (conn.weight > 0) {
-        this.ctx.strokeStyle = '#8BC34A'; // Green for positive weights
-      } else {
-        this.ctx.strokeStyle = '#FF5722'; // Red for negative weights
-      }
-      
-      this.ctx.stroke();
-      this.ctx.lineWidth = 1;
-    });
-  }
-  
-  private determineNodeType(layer: number, totalLayers: number): 'input' | 'hidden' | 'output' {
-    if (layer === 0) return 'input';
-    if (layer === totalLayers - 1) return 'output';
-    return 'hidden';
+  // Add a new method to draw a legend
+  private drawLegend(): void {
+    const canvas = this.networkCanvas.nativeElement;
+    const padding = 10;
+    const legendWidth = 140;
+    const legendHeight = 120;
+    const x = canvas.width - legendWidth - padding;
+    const y = padding;
+    
+    // Draw legend background
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(x, y, legendWidth, legendHeight);
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    this.ctx.strokeRect(x, y, legendWidth, legendHeight);
+    
+    // Draw legend title
+    this.ctx.font = '12px Arial';
+    this.ctx.fillStyle = 'white';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('Network Legend', x + 10, y + 20);
+    
+    // Draw node types
+    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.beginPath();
+    this.ctx.arc(x + 20, y + 40, 8, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillText('Input Node', x + 35, y + 44);
+    
+    this.ctx.fillStyle = '#2196F3';
+    this.ctx.beginPath();
+    this.ctx.arc(x + 20, y + 60, 8, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillText('Hidden Node', x + 35, y + 64);
+    
+    this.ctx.fillStyle = '#F44336';
+    this.ctx.beginPath();
+    this.ctx.arc(x + 20, y + 80, 8, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillText('Output Node', x + 35, y + 84);
+    
+    // Draw connection types
+    this.ctx.strokeStyle = 'rgba(50, 200, 50, 0.7)';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + 10, y + 100);
+    this.ctx.lineTo(x + 30, y + 100);
+    this.ctx.stroke();
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillText('Positive Weight', x + 35, y + 104);
+    
+    this.ctx.strokeStyle = 'rgba(255, 80, 0, 0.7)';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + 10, y + 120);
+    this.ctx.lineTo(x + 30, y + 120);
+    this.ctx.stroke();
+    this.ctx.fillStyle = 'white';
+    this.ctx.fillText('Negative Weight', x + 35, y + 124);
   }
 } 

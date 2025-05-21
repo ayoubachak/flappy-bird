@@ -379,4 +379,13 @@ export class AIService {
     // Trigger evolution to next generation
     this.evolve();
   }
+  
+  // Add a method to get the latest stats directly
+  public getLatestStats(): AIStats {
+    // Force an update of the stats before returning
+    this.updateStats();
+    
+    // Return the current stats value
+    return this.aiStatsSubject.getValue();
+  }
 } 

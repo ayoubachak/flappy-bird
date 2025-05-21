@@ -115,7 +115,7 @@ export class AIStatsVisualizerComponent implements OnInit, OnChanges {
   @Input() stats: AIStats | null = null;
   
   fitnessHistory: number[] = [];
-  maxHistoryFitness = 0;
+  maxHistoryFitness = 1; // Start with a minimum of 1 to avoid division by zero
   
   constructor() { }
   
@@ -123,6 +123,7 @@ export class AIStatsVisualizerComponent implements OnInit, OnChanges {
   
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['stats'] && this.stats) {
+      console.log("Stats updated in visualizer:", this.stats);
       this.updateFitnessHistory();
     }
   }
@@ -131,19 +132,24 @@ export class AIStatsVisualizerComponent implements OnInit, OnChanges {
     if (!this.stats) return;
     
     // Add the current max fitness to history
-    this.fitnessHistory.push(this.stats.maxFitness);
-    
-    // Keep only the most recent 50 entries
-    if (this.fitnessHistory.length > 50) {
-      this.fitnessHistory = this.fitnessHistory.slice(-50);
+    const currentFitness = this.stats.maxFitness || 0;
+    if (currentFitness > 0) {
+      this.fitnessHistory.push(currentFitness);
+      
+      // Keep only the most recent 50 entries
+      if (this.fitnessHistory.length > 50) {
+        this.fitnessHistory = this.fitnessHistory.slice(-50);
+      }
+      
+      // Update the max value for scaling (ensure it's at least 1 to avoid division by zero)
+      this.maxHistoryFitness = Math.max(...this.fitnessHistory, 1);
+      
+      console.log("Fitness history updated:", this.fitnessHistory);
     }
-    
-    // Update the max value for scaling
-    this.maxHistoryFitness = Math.max(...this.fitnessHistory, 1);
   }
   
   getBarHeight(fitness: number): number {
     // Scale the bar height as a percentage of the max fitness
-    return (fitness / this.maxHistoryFitness) * 100;
+    return Math.max(1, (fitness / this.maxHistoryFitness) * 100);
   }
 } 
